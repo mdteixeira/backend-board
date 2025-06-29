@@ -16,87 +16,134 @@ io.on("connection", (socket) => {
     console.log(`A user connected: ${socket.id}`);
 
     socket.on("joinRoom", (room) => {
-        socket.join(room);
-        console.log(`User ${socket.id} joined room: ${room}`);
-        io.to(room).emit("room.join", `User ${socket.id} has joined the room`);
+        try {
+            if (!room || typeof room !== "string") {
+                throw new Error("Invalid room name");
+            }
 
-        // Initialize cards for the room if not already done
-        if (!cardsMap.has(room)) {
-            cardsMap.set(room, []);
-            console.log(`Initialized cards for room: ${room}`);
+            socket.join(room);
+            console.log(`User ${socket.id} joined room: ${room}`);
+            io.to(room).emit("room.join", `User ${socket.id} has joined the room`);
+
+            if (!cardsMap.has(room)) {
+                cardsMap.set(room, []);
+                console.log(`Initialized cards for room: ${room}`);
+            }
+
+            const existingCards = cardsMap.get(room);
+            socket.emit("cards.initial", existingCards);
+            console.log(`Sent existing cards to user ${socket.id} in room ${room}`);
+        } catch (error) {
+            console.error(`Error in joinRoom: ${error.message}`);
+            socket.emit("error", "Failed to join room");
         }
-
-        // Emit existing cards to the newly joined user
-        const existingCards = cardsMap.get(room);
-        socket.emit("cards.initial", existingCards);
-        console.log(`Sent existing cards to user ${socket.id} in room ${room}`);
     });
 
     socket.on("leaveRoom", (room) => {
-        console.log(`User ${socket.id} requested to leave room: ${room}`);
+        try {
+            if (!room || typeof room !== "string") {
+                throw new Error("Invalid room name");
+            }
 
-        io.to(room).emit("room.leave", `User ${socket.id} has left the room`);
-        socket.leave(room);
-        console.log(`User ${socket.id} left room: ${room}`);
+            console.log(`User ${socket.id} requested to leave room: ${room}`);
+            io.to(room).emit("room.leave", `User ${socket.id} has left the room`);
+            socket.leave(room);
+            console.log(`User ${socket.id} left room: ${room}`);
 
-        // Check if the room is empty after the user leaves
-        const roomSockets = io.sockets.adapter.rooms.get(room);
-        if (!roomSockets || roomSockets.size === 0) {
-            // Delete the cards for the room
-            cardsMap.delete(room);
-            console.log(`Deleted cards for room ${room} as it is now empty`);
+            const roomSockets = io.sockets.adapter.rooms.get(room);
+            if (!roomSockets || roomSockets.size === 0) {
+                cardsMap.delete(room);
+                console.log(`Deleted cards for room ${room} as it is now empty`);
+            }
+        } catch (error) {
+            console.error(`Error in leaveRoom: ${error.message}`);
+            socket.emit("error", "Failed to leave room");
         }
     });
 
     socket.on("card.add", (room, card) => {
-        io.to(room).emit("card.added", card);
-        console.log(`Card added in room ${room}:`, card);
+        try {
+            if (!room || typeof room !== "string" || !card || typeof card !== "object") {
+                throw new Error("Invalid room or card data");
+            }
 
-        // Update the cards map for the room
-        const cards = cardsMap.get(room) || [];
-        cards.push(card);
+            io.to(room).emit("card.added", card);
+            console.log(`Card added in room ${room}:`, card);
+
+            const cards = cardsMap.get(room) || [];
+            cards.push(card);
+            cardsMap.set(room, cards);
+        } catch (error) {
+            console.error(`Error in card.add: ${error.message}`);
+            socket.emit("error", "Failed to add card");
+        }
     });
 
     socket.on("card.update", (room, cardId, card) => {
-        io.to(room).emit("card.updated", cardId, card);
-        console.log(`Card updated in room ${room}:`, cardId);
+        try {
+            if (!room || typeof room !== "string" || !cardId || !card) {
+                throw new Error("Invalid room, cardId, or card data");
+            }
 
-        // Update the cards map for the room
-        const cards = cardsMap.get(room) || [];
-        const cardIndex = cards.findIndex(c => c.id === cardId);
-        if (cardIndex !== -1) {
-            cards[cardIndex] = card; // Update the card in the array
-            cardsMap.set(room, cards); // Update the map
+            io.to(room).emit("card.updated", cardId, card);
+            console.log(`Card updated in room ${room}:`, cardId);
+
+            const cards = cardsMap.get(room) || [];
+            const cardIndex = cards.findIndex((c) => c.id === cardId);
+            if (cardIndex !== -1) {
+                cards[cardIndex] = card;
+                cardsMap.set(room, cards);
+            } else {
+                console.warn(`Card with ID ${cardId} not found in room ${room}`);
+            }
+        } catch (error) {
+            console.error(`Error in card.update: ${error.message}`);
+            socket.emit("error", "Failed to update card");
         }
-        console.log(`Updated cards for room ${room}:`, cards);
     });
 
     socket.on("card.remove", (room, cardId) => {
-        io.to(room).emit("card.removed", cardId);
-        console.log(`Card removed in room ${room}:`, cardId);
+        try {
+            if (!room || typeof room !== "string" || !cardId) {
+                throw new Error("Invalid room or cardId");
+            }
 
-        // Update the cards map for the room
-        const cards = cardsMap.get(room) || [];
-        const updatedCards = cards.filter(c => c.id !== cardId);
-        cardsMap.set(room, updatedCards); // Update the map with filtered cards
-        console.log(`Updated cards for room ${room}:`, updatedCards);
+            io.to(room).emit("card.removed", cardId);
+            console.log(`Card removed in room ${room}:`, cardId);
+
+            const cards = cardsMap.get(room) || [];
+            const updatedCards = cards.filter((c) => c.id !== cardId);
+            cardsMap.set(room, updatedCards);
+            console.log(`Updated cards for room ${room}:`, updatedCards);
+        } catch (error) {
+            console.error(`Error in card.remove: ${error.message}`);
+            socket.emit("error", "Failed to remove card");
+        }
     });
 
     socket.on("user.update", (room, user) => {
-        io.to(room).emit("user.updated", user);
+        try {
+            if (!room || typeof room !== "string" || !user || typeof user !== "object") {
+                throw new Error("Invalid room or user data");
+            }
 
-        const cards = cardsMap.get(room) || [];
-        const userCards = cards.filter(c => c.user.name === user.name);
-        console.log(userCards)
-        if (userCards) {
-            userCards.forEach(userCards => {
-                userCards.user = user; // Update user information in the card
-            });
-        } else {
-            console.warn(`User ${user.name} not found in room ${room}`);
+            io.to(room).emit("user.updated", user);
+
+            const cards = cardsMap.get(room) || [];
+            const userCards = cards.filter((c) => c.user.name === user.name);
+            if (userCards.length > 0) {
+                userCards.forEach((userCard) => {
+                    userCard.user = user;
+                });
+            } else {
+                console.warn(`User ${user.name} not found in room ${room}`);
+            }
+
+            console.log(`User updated in room ${room}:`, user);
+        } catch (error) {
+            console.error(`Error in user.update: ${error.message}`);
+            socket.emit("error", "Failed to update user");
         }
-
-        console.log(`User updated in room ${room}:`, user);
     });
 
     socket.on("disconnect", () => {
@@ -108,8 +155,15 @@ const PORT = 3000;
 httpServer.listen(PORT, () => {
     console.log(`Socket server is running on http://localhost:${PORT}`);
 });
+
 const app = express();
 
 app.get("/", (req, res) => {
     res.send("Socket server is running!");
+});
+
+// Express error-handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).send("Something went wrong!");
 });
