@@ -1,6 +1,7 @@
 import { createServer } from "http";
 import { Server } from "socket.io";
 import express from "express";
+import cron from "node-cron";
 
 const httpServer = createServer();
 const io = new Server(httpServer, {
@@ -27,12 +28,14 @@ io.on("connection", (socket) => {
 
             if (!cardsMap.has(room)) {
                 cardsMap.set(room, []);
-                console.log(`Initialized cards for room: ${room}`);
+                console.log(`Created new room: ${room}`);
             }
 
             const existingCards = cardsMap.get(room);
-            socket.emit("cards.initial", existingCards);
-            console.log(`Sent existing cards to user ${socket.id} in room ${room}`);
+            if (existingCards.length > 0) {
+                socket.emit("cards.initial", existingCards);
+                console.log(`Sent existing cards to user ${socket.id} in room ${room}`);
+            }
         } catch (error) {
             console.error(`Error in joinRoom: ${error.message}`);
             socket.emit("error", "Failed to join room");
@@ -41,20 +44,10 @@ io.on("connection", (socket) => {
 
     socket.on("leaveRoom", (room) => {
         try {
-            if (!room || typeof room !== "string") {
-                throw new Error("Invalid room name");
-            }
-
-            console.log(`User ${socket.id} requested to leave room: ${room}`);
             io.to(room).emit("room.leave", `User ${socket.id} has left the room`);
             socket.leave(room);
             console.log(`User ${socket.id} left room: ${room}`);
 
-            const roomSockets = io.sockets.adapter.rooms.get(room);
-            if (!roomSockets || roomSockets.size === 0) {
-                cardsMap.delete(room);
-                console.log(`Deleted cards for room ${room} as it is now empty`);
-            }
         } catch (error) {
             console.error(`Error in leaveRoom: ${error.message}`);
             socket.emit("error", "Failed to leave room");
@@ -148,6 +141,17 @@ io.on("connection", (socket) => {
 
     socket.on("disconnect", () => {
         console.log(`User disconnected: ${socket.id}`);
+
+        // Optionally handle cleanup if necessary
+        io.emit("user.disconnected", `User ${socket.id} has disconnected`);
+        // If you want to remove the user from all rooms
+        socket.rooms.forEach((room) => {
+            if (room !== socket.id) { // Avoid removing from the socket's own room
+                console.log(`User ${socket.id} left room: ${room}`);
+                socket.leave(room);
+            }
+        });
+        console.log(`User ${socket.id} has disconnected and left all rooms`);
     });
 });
 
@@ -166,4 +170,17 @@ app.get("/", (req, res) => {
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).send("Something went wrong!");
+});
+
+// Cron job to clean up empty rooms every minute
+cron.schedule("* * * * *", () => {
+    console.log("Running cron job to clean up empty rooms...");
+    cardsMap.forEach((cards, room) => {
+        console.log(`Checking room: ${room}, Cards: ${cards.length}`);
+        const roomSockets = io.sockets.adapter.rooms.get(room);
+        if (!roomSockets || roomSockets.size === 0) {
+            cardsMap.delete(room);
+            console.log(`Deleted empty room: ${room}`);
+        }
+    });
 });
