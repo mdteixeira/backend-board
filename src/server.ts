@@ -11,9 +11,7 @@ export const startServer = () =>
 
 		socket.on("joinRoom", (room) => {
 			try {
-				if (!room || typeof room !== "string") {
-					throw new Error("Invalid room name");
-				}
+				if (!room || typeof room !== "string") throw new Error("Invalid room name");
 
 				socket.join(room);
 				console.info(`User ${socket.id} joined room ${room}`, {

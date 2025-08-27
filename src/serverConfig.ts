@@ -11,9 +11,9 @@ export const io = new Server(httpServer, {
     },
 });
 
-const PORT = 1298;
-httpServer.listen(PORT, () => {
-    console.log(`Socket server is running on http://localhost:${PORT}`);
+const PORT = process.env.PORT || 3000; // Use the PORT environment variable or default to 3000
+httpServer.listen({ port: PORT, host: "0.0.0.0" }, () => {
+    console.log(`Socket server is running on http://0.0.0.0:${PORT}`);
 });
 
 const app = express();
