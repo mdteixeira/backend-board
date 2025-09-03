@@ -12,7 +12,8 @@ export const startServer = () =>
 
         socket.on("joinRoom", (room) => {
             try {
-                if (!room || typeof room !== "string") throw new Error("Invalid room name");
+                if (!room || typeof room !== "string")
+                    throw new Error("Invalid room name");
 
                 socket.join(room);
                 console.info(`User ${socket.id} joined room ${room}`, {
@@ -79,7 +80,7 @@ export const startServer = () =>
                 console.log(`Card added in room`, {
                     topic: "card.add",
                     card,
-                    room
+                    room,
                 });
 
                 const cards = cardsMap.get(room) || [];
@@ -142,23 +143,41 @@ export const startServer = () =>
             }
         });
 
-        // socket.on("column.update", (room, column) => {
-        // 	try {
-        // 		const cards = cardsMap.get(room) || [];
-        // 		const updatedCards = cards.map((card) => {
-        // 			if (card.columnId === column.id) {
-        // 				return { ...card, column };
-        // 			}
-        // 			return card;
-        // 		});
-        // 		cardsMap.set(room, updatedCards);
-        // 		io.to(room).emit("column.updated", column);
-        // 		console.log(`Column updated in room ${room}:`, column);
-        // 	} catch (error) {
-        // 		console.error(`Error in column.update: ${error}`);
-        // 		socket.emit("error", "Failed to update column");
-        // 	}
-        // });
+        socket.on("column.update", (room, column, updatedColumn) => {
+            try {
+                const cards = cardsMap.get(room) || [];
+                const updatedCards = cards.map((card) => {
+                    if (card.column === column.column) {
+                        return { ...card, column };
+                    }
+                    return card;
+                });
+                cardsMap.set(room, updatedCards);
+                io.to(room).emit("column.updated", column, updatedColumn);
+                console.log(`Column updated in room ${room}:`, column, updatedColumn);
+            } catch (error) {
+                console.error(`Error in column.update: ${error}`);
+                socket.emit("error", "Failed to update column");
+            }
+        });
+        socket.on("column.delete", (room, column) => {
+            try {
+                const cards = cardsMap.get(room) || [];
+                const updatedCards = cards.map((card) => {
+                    if (card.column === column.column) {
+                        return { ...card, column };
+                    }
+                    return card;
+                });
+
+                cardsMap.set(room, updatedCards);
+                io.to(room).emit("column.deleted", column);
+                console.log(`Column deleted in room ${room}:`, column);
+            } catch (error) {
+                console.error(`Error in column.delete: ${error}`);
+                socket.emit("error", "Failed to delete column");
+            }
+        });
 
         socket.on("user.update", (room, user) => {
             try {
@@ -170,6 +189,8 @@ export const startServer = () =>
                 ) {
                     throw new Error("Invalid room or user data");
                 }
+
+                console.log("user", user);
 
                 io.to(room).emit("user.updated", user);
 
@@ -187,6 +208,47 @@ export const startServer = () =>
             } catch (error) {
                 console.error(`Error in user.update: ${error}`);
                 socket.emit("error", "Failed to update user");
+            }
+        });
+
+        socket.on("timer.open", (room, open) => {
+            try {
+                if (!room || typeof room !== "string") throw new Error("Invalid room");
+                io.to(room).emit("timer.open", open);
+            } catch (error) {
+                console.error(`Error in timer: ${error}`);
+                socket.emit("error", "Failed to update timer");
+            }
+        });
+
+        socket.on("hide.users", (room, hide) => {
+            try {
+                if (!room || typeof room !== "string") throw new Error("Invalid room");
+                io.to(room).emit("hide.users", hide);
+                io.to(room).emit("hide.users", hide);
+            } catch (error) {
+                console.error(`Error in hide users: ${error}`);
+                socket.emit("error", "Failed to hide users");
+            }
+        });
+
+        socket.on("filter.users", (room, filter) => {
+            try {
+                if (!room || typeof room !== "string") throw new Error("Invalid room");
+                io.to(room).emit("filter.users", filter);
+            } catch (error) {
+                console.error(`Error in filter users: ${error}`);
+                socket.emit("error", "Failed to filter users");
+            }
+        });
+
+        socket.on("timer.update", (room, totalSecond, isRunning) => {
+            try {
+                if (!room || typeof room !== "string") throw new Error("Invalid room");
+                io.to(room).emit("timer.updated", totalSecond, isRunning);
+            } catch (error) {
+                console.error(`Error in timer: ${error}`);
+                socket.emit("error", "Failed to update timer");
             }
         });
 
