@@ -10,20 +10,21 @@ export const startServer = () =>
             topic: "connection",
         });
 
-        socket.on("joinRoom", (room) => {
+        socket.on("joinRoom", (room, user) => {
             try {
                 if (!room || typeof room !== "string")
                     throw new Error("Invalid room name");
 
                 socket.join(room);
-                console.info(`User ${socket.id} joined room ${room}`, {
+                console.info(`User ${user.name} joined room ${room}`, {
                     Trigger: "room",
                     Action: "join",
                     room,
+                    user,
                     socketId: socket.id,
                     topic: "joinRoom",
                 });
-                io.to(room).emit("room.join", `User ${socket.id} has joined the room`);
+                io.to(room).emit("room.join", user);
 
                 if (!cardsMap.has(room)) {
                     cardsMap.set(room, []);
@@ -224,7 +225,6 @@ export const startServer = () =>
         socket.on("hide.users", (room, hide) => {
             try {
                 if (!room || typeof room !== "string") throw new Error("Invalid room");
-                io.to(room).emit("hide.users", hide);
                 io.to(room).emit("hide.users", hide);
             } catch (error) {
                 console.error(`Error in hide users: ${error}`);
