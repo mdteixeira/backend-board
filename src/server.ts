@@ -226,12 +226,6 @@ export const startServer = () =>
             try {
                 if (!room || typeof room !== 'string') throw new Error('Invalid room');
                 io.to(room).emit('hide.users', hide);
-                const cards = cardsMap.get(room) || [];
-                cards.forEach((card) => {
-                    card.user.hidden = hide;
-                });
-                cardsMap.set(room, cards);
-                socket.emit('cards.initial', cards);
             } catch (error) {
                 console.error(`Error in hide users: ${error}`);
                 socket.emit('error', 'Failed to hide users');
