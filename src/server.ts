@@ -1,4 +1,6 @@
+import { User } from '@/types';
 import { cardsMap } from './cardsMap';
+import { encrypt } from './crypto';
 import { io } from './serverConfig';
 
 export const startServer = () =>
@@ -10,7 +12,7 @@ export const startServer = () =>
             topic: 'connection',
         });
 
-        socket.on('joinRoom', (room, user) => {
+        socket.on('joinRoom', (room: string, user: User) => {
             try {
                 if (!room || typeof room !== 'string')
                     throw new Error('Invalid room name');
@@ -33,7 +35,7 @@ export const startServer = () =>
 
                 const existingCards = cardsMap.get(room);
                 if (existingCards?.length) {
-                    socket.emit('cards.initial', existingCards);
+                    socket.emit('cards.initial', encrypt(existingCards));
                     console.info(`Sent initial cards of room ${room} to ${socket.id}`, {
                         Trigger: 'cards',
                         Action: 'initial',
@@ -77,7 +79,7 @@ export const startServer = () =>
                     throw new Error('Invalid room or card data');
                 }
 
-                io.to(room).emit('card.added', card);
+                io.to(room).emit('card.added', encrypt(card));
                 console.log(`Card added in room`, {
                     topic: 'card.add',
                     card,
@@ -99,7 +101,7 @@ export const startServer = () =>
                     throw new Error('Invalid room, cardId, or card data');
                 }
 
-                io.to(room).emit('card.updated', cardId, card);
+                io.to(room).emit('card.updated', cardId, encrypt(card));
                 console.log(`Card updated in room ${room}:`, {
                     room,
                     cardId,
